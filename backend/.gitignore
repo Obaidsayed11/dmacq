@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+
+# logs
+logs/
+*.log
+
+# environment variables
+.env
+.env.local
+
+# build output (if using Babel/TypeScript)
+dist/
+
+# misc
+*.tgz
+*.zip
+*.gz
+*.tmp
+*.bak
+*.orig
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.vscode/
+.idea/
+
+# database dumps (optional)
+dump/
