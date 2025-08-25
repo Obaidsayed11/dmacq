@@ -4,32 +4,37 @@ import ApiSuccess from "../Utils/ApiSuccess.js";
 import Post from "../Models/Post.Model.js";
 
 
+
 const allPostController = asyncHandler(async(req,res)=> {
    const page = parseInt(req.query.page) || 1;
-    const limit = 10;
-    const skip = (page - 1) * limit;
+   const limit = 10;
+   const skip = (page - 1) * limit;
+   const searchTerm = req.query.search || '';
 
-    // Get total count
-    const totalPosts = await Post.countDocuments();
-    
-    // Get posts
-    const posts = await Post.find()
-        .sort({ _id: 1 })
-        .skip(skip)
-        .limit(limit);
+   let searchQuery = {};
+   if (searchTerm.trim()) {
+       searchQuery = {
+           title: { $regex: searchTerm, $options: 'i' }
+       };
+   }
 
-    // Add total count to response
-    const response = {
-        data: posts,
-        totalPosts: totalPosts,
-        currentPage: page,
-        totalPages: Math.ceil(totalPosts / limit)
-    };
+   const totalPosts = await Post.countDocuments(searchQuery);
+   
+   const posts = await Post.find(searchQuery)
+       .sort({ _id: 1 })
+       .skip(skip)
+       .limit(limit);
 
-    return res.status(200).json(new ApiSuccess(200, response, "Posts Fetched Successfully"));
+   const response = {
+       data: posts,
+       totalPosts: totalPosts,
+       currentPage: page,
+       totalPages: Math.ceil(totalPosts / limit),
+       searchTerm: searchTerm
+   };
+
+   return res.status(200).json(new ApiSuccess(200, response, "Posts Fetched Successfully"));
 });
-
-// Single Post
 
 const singlePostController = asyncHandler(async(req,res)=> {
     const post = await Post.findById(req.params.id);

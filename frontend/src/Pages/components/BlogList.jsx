@@ -33,58 +33,56 @@ const PostSkeleton = () => (
   </div>
 );
 
-const SearchResultPost = ({ postId, onLike, isLiking, onPostFetched }) => {
-  const {
-    data: singlePostData,
-    isLoading,
-    error,
-  } = useGetPostQuery(postId, {
-    skip: !postId,
-  });
-
-  useEffect(() => {
-    if (singlePostData?.data) {
-      onPostFetched(postId, singlePostData.data);
-    }
-  }, [singlePostData, postId, onPostFetched]);
-
-  if (isLoading) return <PostSkeleton />;
-  if (error || !singlePostData?.data) return null;
-
-  return (
-    <PostCard post={singlePostData.data} onLike={onLike} isLiking={isLiking} />
-  );
-};
-
 const BlogList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [allPosts, setAllPosts] = useState([]);
   const [hasMorePages, setHasMorePages] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [searchedPostIds, setSearchedPostIds] = useState([]);
-  const [singlePosts, setSinglePosts] = useState({});
   const [totalPages, setTotalPages] = useState(0);
   const [isInfiniteScrollMode, setIsInfiniteScrollMode] = useState(true);
   const [actualTotalPages, setActualTotalPages] = useState(0);
+  const [isSearching, setIsSearching] = useState(false);
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  // Update query parameters to include search
+  const queryParams = {
+    page: currentPage,
+    ...(debouncedSearchTerm.trim() && { search: debouncedSearchTerm })
+  };
 
   const {
     data: postsData,
     isLoading: isLoadingPosts,
     error: postsError,
     isFetching,
-  } = useGetPostsQuery(currentPage);
+  } = useGetPostsQuery(queryParams, {
+    // This ensures the query refetches when queryParams change
+    refetchOnMountOrArgChange: true,
+  });
 
   const [likePost] = useLikePostMutation();
   const [likingPostIds, setLikingPostIds] = useState(new Set());
+  useEffect(() => {
+    if (debouncedSearchTerm.trim()) {
+      setIsSearching(true);
+      setCurrentPage(1);
+      setAllPosts([]);
+      setIsInfiniteScrollMode(false); 
+    } else {
+      setIsSearching(false);
+      setCurrentPage(1);
+      setAllPosts([]);
+      setIsInfiniteScrollMode(true); 
+    }
+  }, [debouncedSearchTerm]);
 
   useEffect(() => {
     if (postsData?.data?.data) {
       const newPosts = postsData.data.data;
 
-      if (isInfiniteScrollMode && currentPage > 1) {
+      if (isInfiniteScrollMode && currentPage > 1 && !debouncedSearchTerm.trim()) {
         setAllPosts((prev) => {
           const filteredNewPosts = newPosts.filter(
             (newPost) =>
@@ -93,10 +91,11 @@ const BlogList = () => {
           return [...prev, ...filteredNewPosts];
         });
       } else {
+      
         setAllPosts(newPosts);
       }
 
-      // Update pagination info
+
       setHasMorePages(newPosts.length === 10);
       setIsLoadingMore(false);
 
@@ -105,26 +104,7 @@ const BlogList = () => {
         setActualTotalPages(postsData.data.totalPages);
       }
     }
-  }, [postsData, currentPage, isInfiniteScrollMode]);
-
-  useEffect(() => {
-    if (debouncedSearchTerm.trim()) {
-      const matchingPosts = allPosts.filter((post) =>
-        post.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-      );
-      setSearchedPostIds(matchingPosts.map((post) => post._id));
-    } else {
-      setSearchedPostIds([]);
-      setSinglePosts({});
-    }
-  }, [debouncedSearchTerm, allPosts]);
-
-  const handlePostFetched = useCallback((postId, postData) => {
-    setSinglePosts((prev) => ({
-      ...prev,
-      [postId]: postData,
-    }));
-  }, []);
+  }, [postsData, currentPage, isInfiniteScrollMode, debouncedSearchTerm]);
 
   const handleScroll = useCallback(() => {
     if (
@@ -133,11 +113,11 @@ const BlogList = () => {
       hasMorePages &&
       !isLoadingMore &&
       !isFetching &&
-      !searchTerm.trim()
+      !searchTerm.trim() 
     ) {
       handleInfiniteScroll();
     }
-  }, [hasMorePages, isLoadingMore, isFetching, searchTerm, allPosts.length]);
+  }, [hasMorePages, isLoadingMore, isFetching, searchTerm]);
 
   useEffect(() => {
     window.addEventListener("scroll", handleScroll);
@@ -149,7 +129,9 @@ const BlogList = () => {
 
     setIsInfiniteScrollMode(false);
     setCurrentPage(newPage);
-    setAllPosts([]);
+    if (!debouncedSearchTerm.trim()) {
+      setAllPosts([]);
+    }
     setIsLoadingMore(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -158,7 +140,8 @@ const BlogList = () => {
     if (hasMorePages && !isLoadingMore && !isFetching && !searchTerm.trim()) {
       setIsInfiniteScrollMode(true);
       setIsLoadingMore(true);
-      const nextPage = Math.floor(allPosts.length / 10) + 1;
+      // Calculate next page based on current page, not allPosts length
+      const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
     }
   };
@@ -168,27 +151,16 @@ const BlogList = () => {
 
     try {
       await likePost(postId).unwrap();
-     toast.success("Post liked successfully!");
+      toast.success("Post liked successfully!");
 
       setAllPosts((prev) =>
         prev.map((post) =>
           post._id === postId ? { ...post, likes: (post.likes || 0) + 1 } : post
         )
       );
-
-      setSinglePosts((prev) => ({
-        ...prev,
-        [postId]: prev[postId]
-          ? {
-              ...prev[postId],
-              likes: (prev[postId].likes || 0) + 1,
-            }
-          : prev[postId],
-      }));
     } catch (error) {
       console.error("Failed to like post:", error);
-    //   setToast({ message: "Failed to like post", type: "error" });
-     toast.error("Failed to like post");
+      toast.error("Failed to like post");
     } finally {
       setLikingPostIds((prev) => {
         const newSet = new Set(prev);
@@ -206,8 +178,10 @@ const BlogList = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">Loading posts...</p>
+          <Loader2 className="w-12 h-12 animate-spin text-purple-500 mx-auto mb-4" />
+          <p className="text-gray-600 text-lg">
+            {isSearching ? "Searching posts..." : "Loading posts..."}
+          </p>
         </div>
       </div>
     );
@@ -221,7 +195,7 @@ const BlogList = () => {
           <p className="text-red-600 text-lg">Failed to load posts</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            className="mt-4 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
           >
             Try Again
           </button>
@@ -235,10 +209,10 @@ const BlogList = () => {
       <SearchHeader
         searchTerm={searchTerm}
         onSearchChange={handleSearchChange}
-        resultsCount={searchedPostIds.length}
+        resultsCount={postsData?.data?.totalPosts || 0}
         currentPage={currentPage}
         hasNextPage={
-          isInfiniteScrollMode
+          isInfiniteScrollMode && !debouncedSearchTerm.trim()
             ? hasMorePages
             : actualTotalPages > 0
             ? currentPage < actualTotalPages
@@ -247,23 +221,20 @@ const BlogList = () => {
         hasPrevPage={currentPage > 1}
         onPageChange={handlePageChange}
         totalPages={totalPages}
+        isSearching={debouncedSearchTerm.trim() !== ""}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {searchTerm.trim() && searchedPostIds.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4  gap-6">
-            {searchedPostIds.map((postId) => (
-              <SearchResultPost
-                key={postId}
-                postId={postId}
-                onLike={handleLike}
-                isLiking={likingPostIds.has(postId)}
-                onPostFetched={handlePostFetched}
-              />
-            ))}
-          </div>
-        ) : allPosts.length > 0 ? (
+        {allPosts.length > 0 ? (
           <>
+            {debouncedSearchTerm.trim() && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-blue-800">
+                  Found {postsData?.data?.totalPosts || 0} posts matching "{debouncedSearchTerm}"
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {allPosts.map((post) => (
                 <PostCard
@@ -274,16 +245,18 @@ const BlogList = () => {
                 />
               ))}
             </div>
-            {isLoadingMore && !searchTerm.trim() && (
+
+            {isLoadingMore && !debouncedSearchTerm.trim() && (
               <div className="flex justify-center py-8">
-                <div className="flex items-center gap-2 text-blue-600">
+                <div className="flex items-center gap-2 text-purple-600">
                   <Loader2 className="w-6 h-6 animate-spin" />
                   <span className="text-lg">Loading more posts...</span>
                 </div>
               </div>
             )}
 
-            {!hasMorePages && !searchTerm.trim() && allPosts.length > 0 && (
+            {/* End message for infinite scroll */}
+            {!hasMorePages && !debouncedSearchTerm.trim() && allPosts.length > 0 && (
               <div className="text-center py-8">
                 <p className="text-gray-500 text-lg">
                   You've reached the end! 🎉
@@ -294,10 +267,12 @@ const BlogList = () => {
         ) : (
           <div className="text-center py-16">
             <div className="text-gray-400 text-6xl mb-4">📝</div>
-            <p className="text-gray-500 text-xl mb-2">No posts found</p>
+            <p className="text-gray-500 text-xl mb-2">
+              {debouncedSearchTerm.trim() ? "No posts found" : "No posts available"}
+            </p>
             <p className="text-gray-400">
-              {searchTerm.trim()
-                ? "Try different keywords"
+              {debouncedSearchTerm.trim()
+                ? `No posts match "${debouncedSearchTerm}"`
                 : "Check back later"}
             </p>
           </div>

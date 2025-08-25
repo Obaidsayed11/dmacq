@@ -71,7 +71,7 @@ const seedPosts = [
 
 const importData = async () => {
   try {
-    await Post.deleteMany(); // Clear old data
+    await Post.deleteMany(); 
     await Post.insertMany(seedPosts);
     console.log("Data Seeded Successfully!");
     process.exit();

@@ -41,7 +41,7 @@ const SearchHeader = ({
     <div className="bg-white shadow-sm border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h1 className="text-3xl font-bold text-gray-900">Blog Posts</h1>
+          <h1 className="text-3xl font-bold text-purple-600">Blog Posts</h1>
 
           <div className="relative max-w-md w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -52,11 +52,11 @@ const SearchHeader = ({
               placeholder="Search posts by title..."
               value={searchTerm}
               onChange={onSearchChange}
-              className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
+              className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none transition-all duration-200"
             />
           </div>
           <button
-            className="group flex items-center justify-start w-11 h-11 bg-red-600 rounded-full cursor-pointer relative overflow-hidden transition-all duration-200 shadow-lg hover:w-32 hover:rounded-lg active:translate-x-1 active:translate-y-1"
+            className="group flex items-center justify-start w-11 h-11 bg-purple-600 rounded-full cursor-pointer relative overflow-hidden transition-all duration-200 shadow-lg hover:w-32 hover:rounded-lg active:translate-x-1 active:translate-y-1"
             onClick={() => setShowConfirm(true)}
           >
             <div className="flex items-center justify-center w-full transition-all duration-300 group-hover:justify-start group-hover:px-3">
@@ -72,7 +72,7 @@ const SearchHeader = ({
         {showConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
             <div className="bg-white border rounded-lg shadow relative max-w-sm w-full mx-4">
-              {/* Close (X) button */}
+             
               <div className="flex justify-end p-2">
                 <button
                   type="button"
@@ -138,8 +138,8 @@ const SearchHeader = ({
         )}
 
         {searchTerm.trim() && (
-          <div className="mt-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
-            <p className="text-blue-700">
+          <div className="mt-4 p-4 bg-purple-50 border-l-4 border-purple-500 rounded">
+            <p className="text-purple-700">
               {resultsCount > 0
                 ? `Found ${resultsCount} post${
                     resultsCount !== 1 ? "s" : ""

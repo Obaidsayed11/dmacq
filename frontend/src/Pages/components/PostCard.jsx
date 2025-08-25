@@ -20,7 +20,7 @@ const PostCard = ({ post, onLike, isLiking }) => {
       )}
       
       <div className="p-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-3 line-clamp-2 hover:text-blue-600 transition-colors">
+        <h2 className="text-xl font-bold text-gray-800 mb-3 line-clamp-2 hover:text-purple-600 transition-colors">
           {post.title}
         </h2>
         
