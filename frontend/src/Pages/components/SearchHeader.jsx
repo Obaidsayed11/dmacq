@@ -138,7 +138,7 @@ const SearchHeader = ({
         )}
 
         {searchTerm.trim() && (
-          <div className="mt-4 p-4 bg-purple-50 border-l-4 border-purple-500 rounded">
+          <div className="mt-4 p-4 bg-purple-50 border-l-4 border-purple-500 rounded  ">
             <p className="text-purple-700">
               {resultsCount > 0
                 ? `Found ${resultsCount} post${

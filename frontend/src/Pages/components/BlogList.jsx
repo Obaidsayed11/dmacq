@@ -227,13 +227,6 @@ const BlogList = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {allPosts.length > 0 ? (
           <>
-            {debouncedSearchTerm.trim() && (
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-800">
-                  Found {postsData?.data?.totalPosts || 0} posts matching "{debouncedSearchTerm}"
-                </p>
-              </div>
-            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {allPosts.map((post) => (
