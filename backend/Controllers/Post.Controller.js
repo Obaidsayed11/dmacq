@@ -43,6 +43,32 @@ const singlePostController = asyncHandler(async(req,res)=> {
 })
 
 
+const searchPostsController = asyncHandler(async(req, res) => {
+    const searchTerm = req.query.search || '';
+    
+    if (!searchTerm.trim()) {
+        return res.status(400).json(new ApiError(400, "Search term is required"));
+    }
+    
+    const searchQuery = {
+        title: { $regex: searchTerm, $options: 'i' }
+    };
+    
+    // Only return _id and title for matched posts
+    const matchedPosts = await Post.find(searchQuery)
+        .select('_id title')
+        .sort({ _id: 1 });
+    
+    const response = {
+        posts: matchedPosts,
+        totalResults: matchedPosts.length,
+        searchTerm: searchTerm
+    };
+    
+    return res.status(200).json(new ApiSuccess(200, response, "Search Results Fetched Successfully"));
+});
+
+
 //like post
 
 const likePostController = asyncHandler(async(req,res) => {
@@ -60,4 +86,4 @@ const likePostController = asyncHandler(async(req,res) => {
 })
 
 
-export default  {allPostController,singlePostController,likePostController }
+export default  {allPostController,singlePostController,searchPostsController, likePostController }

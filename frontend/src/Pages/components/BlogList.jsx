@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import {
   useGetPostsQuery,
   useGetPostQuery,
+  useSearchPostsQuery,
   useLikePostMutation,
 } from "../../redux/ApiSlice/Post.Slice";
 import PostCard from "./PostCard";
@@ -33,6 +34,23 @@ const PostSkeleton = () => (
   </div>
 );
 
+
+const SearchResultPost = ({ postId, onLike, isLiking }) => {
+  const { data: postData, isLoading, error } = useGetPostQuery(postId);
+  
+  if (isLoading) return <PostSkeleton />;
+  if (error) return null;
+  if (!postData?.data) return null;
+  
+  return (
+    <PostCard
+      post={postData.data}
+      onLike={onLike}
+      isLiking={isLiking}
+    />
+  );
+};
+
 const BlogList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,13 +61,13 @@ const BlogList = () => {
   const [isInfiniteScrollMode, setIsInfiniteScrollMode] = useState(true);
   const [actualTotalPages, setActualTotalPages] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
 
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-  // Update query parameters to include search
+  
   const queryParams = {
     page: currentPage,
-    ...(debouncedSearchTerm.trim() && { search: debouncedSearchTerm })
   };
 
   const {
@@ -58,31 +76,51 @@ const BlogList = () => {
     error: postsError,
     isFetching,
   } = useGetPostsQuery(queryParams, {
-    // This ensures the query refetches when queryParams change
+    skip: debouncedSearchTerm.trim() !== "", 
     refetchOnMountOrArgChange: true,
+  });
+
+
+  const {
+    data: searchData,
+    isLoading: isLoadingSearch,
+    error: searchError,
+  } = useSearchPostsQuery(debouncedSearchTerm, {
+    skip: debouncedSearchTerm.trim() === "" || debouncedSearchTerm.trim().length < 2, 
   });
 
   const [likePost] = useLikePostMutation();
   const [likingPostIds, setLikingPostIds] = useState(new Set());
+
+ 
   useEffect(() => {
-    if (debouncedSearchTerm.trim()) {
+    if (debouncedSearchTerm.trim() && debouncedSearchTerm.trim().length >= 2) {
       setIsSearching(true);
       setCurrentPage(1);
       setAllPosts([]);
-      setIsInfiniteScrollMode(false); 
+      setIsInfiniteScrollMode(false);
     } else {
       setIsSearching(false);
       setCurrentPage(1);
       setAllPosts([]);
-      setIsInfiniteScrollMode(true); 
+      setIsInfiniteScrollMode(true);
+      setSearchResults([]);
     }
   }, [debouncedSearchTerm]);
 
+ 
   useEffect(() => {
-    if (postsData?.data?.data) {
+    if (searchData?.data?.posts) {
+      setSearchResults(searchData.data.posts);
+    }
+  }, [searchData]);
+
+
+  useEffect(() => {
+    if (postsData?.data?.data && !debouncedSearchTerm.trim()) {
       const newPosts = postsData.data.data;
 
-      if (isInfiniteScrollMode && currentPage > 1 && !debouncedSearchTerm.trim()) {
+      if (isInfiniteScrollMode && currentPage > 1) {
         setAllPosts((prev) => {
           const filteredNewPosts = newPosts.filter(
             (newPost) =>
@@ -91,10 +129,8 @@ const BlogList = () => {
           return [...prev, ...filteredNewPosts];
         });
       } else {
-      
         setAllPosts(newPosts);
       }
-
 
       setHasMorePages(newPosts.length === 10);
       setIsLoadingMore(false);
@@ -113,7 +149,7 @@ const BlogList = () => {
       hasMorePages &&
       !isLoadingMore &&
       !isFetching &&
-      !searchTerm.trim() 
+      !searchTerm.trim()
     ) {
       handleInfiniteScroll();
     }
@@ -140,7 +176,6 @@ const BlogList = () => {
     if (hasMorePages && !isLoadingMore && !isFetching && !searchTerm.trim()) {
       setIsInfiniteScrollMode(true);
       setIsLoadingMore(true);
-      // Calculate next page based on current page, not allPosts length
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
     }
@@ -153,6 +188,7 @@ const BlogList = () => {
       await likePost(postId).unwrap();
       toast.success("Post liked successfully!");
 
+      // Update posts in regular list
       setAllPosts((prev) =>
         prev.map((post) =>
           post._id === postId ? { ...post, likes: (post.likes || 0) + 1 } : post
@@ -174,7 +210,7 @@ const BlogList = () => {
     setSearchTerm(e.target.value);
   };
 
-  if (isLoadingPosts && allPosts.length === 0) {
+  if ((isLoadingPosts || isLoadingSearch) && allPosts.length === 0 && searchResults.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -187,7 +223,8 @@ const BlogList = () => {
     );
   }
 
-  if (postsError) {
+  // Error state
+  if (postsError || searchError) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -204,42 +241,63 @@ const BlogList = () => {
     );
   }
 
+ 
+  const showSearchResults = debouncedSearchTerm.trim() !== "" && debouncedSearchTerm.trim().length >= 2;
+  const hasContent = showSearchResults ? searchResults.length > 0 : allPosts.length > 0;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <SearchHeader
         searchTerm={searchTerm}
         onSearchChange={handleSearchChange}
-        resultsCount={postsData?.data?.totalPosts || 0}
+        resultsCount={
+          showSearchResults 
+            ? searchResults.length 
+            : postsData?.data?.totalPosts || 0
+        }
         currentPage={currentPage}
         hasNextPage={
-          isInfiniteScrollMode && !debouncedSearchTerm.trim()
+          showSearchResults 
+            ? false 
+            : isInfiniteScrollMode
             ? hasMorePages
             : actualTotalPages > 0
             ? currentPage < actualTotalPages
             : hasMorePages
         }
-        hasPrevPage={currentPage > 1}
+        hasPrevPage={showSearchResults ? false : currentPage > 1}
         onPageChange={handlePageChange}
         totalPages={totalPages}
-        isSearching={debouncedSearchTerm.trim() !== ""}
+        isSearching={showSearchResults}
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {allPosts.length > 0 ? (
+        {hasContent ? (
           <>
-
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {allPosts.map((post) => (
-                <PostCard
-                  key={post._id}
-                  post={post}
-                  onLike={handleLike}
-                  isLiking={likingPostIds.has(post._id)}
-                />
-              ))}
+              {showSearchResults
+                ? 
+                  searchResults.map((result) => (
+                    <SearchResultPost
+                      key={result._id}
+                      postId={result._id}
+                      onLike={handleLike}
+                      isLiking={likingPostIds.has(result._id)}
+                    />
+                  ))
+                : 
+                  allPosts.map((post) => (
+                    <PostCard
+                      key={post._id}
+                      post={post}
+                      onLike={handleLike}
+                      isLiking={likingPostIds.has(post._id)}
+                    />
+                  ))}
             </div>
 
-            {isLoadingMore && !debouncedSearchTerm.trim() && (
+           
+            {isLoadingMore && !showSearchResults && (
               <div className="flex justify-center py-8">
                 <div className="flex items-center gap-2 text-purple-600">
                   <Loader2 className="w-6 h-6 animate-spin" />
@@ -248,8 +306,8 @@ const BlogList = () => {
               </div>
             )}
 
-            {/* End message for infinite scroll */}
-            {!hasMorePages && !debouncedSearchTerm.trim() && allPosts.length > 0 && (
+            
+            {!hasMorePages && !showSearchResults && allPosts.length > 0 && (
               <div className="text-center py-8">
                 <p className="text-gray-500 text-lg">
                   You've reached the end! 🎉
@@ -261,10 +319,10 @@ const BlogList = () => {
           <div className="text-center py-16">
             <div className="text-gray-400 text-6xl mb-4">📝</div>
             <p className="text-gray-500 text-xl mb-2">
-              {debouncedSearchTerm.trim() ? "No posts found" : "No posts available"}
+              {showSearchResults ? "No posts found" : "No posts available"}
             </p>
             <p className="text-gray-400">
-              {debouncedSearchTerm.trim()
+              {showSearchResults
                 ? `No posts match "${debouncedSearchTerm}"`
                 : "Check back later"}
             </p>

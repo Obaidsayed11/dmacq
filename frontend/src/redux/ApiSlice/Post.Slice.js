@@ -2,27 +2,37 @@ import BaseApi from "../BaseQuery/baseQuery";
 
 export const PostApi = BaseApi.injectEndpoints({
   endpoints: (builder) => ({
-   
     getPosts: builder.query({
-  query: ({ page = 1, search = '' }) => {
-    const params = new URLSearchParams({ page: page.toString() });
-    if (search.trim()) {
-      params.append('search', search);
-    }
-    return `posts?${params.toString()}`;
-  },
-  providesTags: (result) =>
-    result?.posts
-      ? [
-          ...result.posts.map((p) => ({ type: "Post", id: p._id })),
-          { type: "Posts", id: "LIST" },
-        ]
-      : [{ type: "Posts", id: "LIST" }],
-}),
+      query: ({ page = 1, search = "" }) => {
+        const params = new URLSearchParams({ page: page.toString() });
+        if (search.trim()) {
+          params.append("search", search);
+        }
+        return `posts?${params.toString()}`;
+      },
+      providesTags: (result) =>
+        result?.posts
+          ? [
+              ...result.posts.map((p) => ({ type: "Post", id: p._id })),
+              { type: "Posts", id: "LIST" },
+            ]
+          : [{ type: "Posts", id: "LIST" }],
+    }),
 
     getPost: builder.query({
       query: (id) => `posts/${id}`,
       providesTags: (result, err, id) => [{ type: "Post", id }],
+    }),
+    searchPosts: builder.query({
+      query: (searchTerm) =>
+        `posts/search?search=${encodeURIComponent(searchTerm)}`,
+      providesTags: (result) =>
+        result?.data?.posts
+          ? [
+              ...result.data.posts.map((p) => ({ type: "Post", id: p._id })),
+              { type: "Posts", id: "SEARCH" },
+            ]
+          : [{ type: "Posts", id: "SEARCH" }],
     }),
 
     likePost: builder.mutation({
@@ -39,5 +49,9 @@ export const PostApi = BaseApi.injectEndpoints({
   }),
 });
 
-export const { useGetPostsQuery, useGetPostQuery, useLikePostMutation } =
-  PostApi;
+export const {
+  useGetPostsQuery,
+  useGetPostQuery,
+  useLikePostMutation,
+  useSearchPostsQuery,
+} = PostApi;
